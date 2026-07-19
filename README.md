@@ -167,7 +167,8 @@ You only **must** set `DISCORD_TOKEN`. Everything else has defaults.
 
 Full list lives in [`.env.example`](.env.example):
 
-- `ALLOW_GENERIC_URLS` — try other websites, not only the big social apps  
+- `ALLOW_GENERIC_URLS` — **on by default**; tries other websites via yt-dlp, not only the big social apps  
+
 - `CONCURRENT_DOWNLOAD_LIMIT` — how many downloads at once  
 - `DOWNLOAD_TIMEOUT_SECONDS` — give up if a download takes too long  
 - `TEMP_DIR` / `LOG_FILE` — where temp files and logs go  

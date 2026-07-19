@@ -1,0 +1,16 @@
+services:
+  discord-video-bot:
+    build: .
+    container_name: discord-video-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - video-tmp:/tmp/discord-video-bot
+    environment:
+      TEMP_DIR: /tmp/discord-video-bot
+      LOG_FILE: /app/logs/bot.log
+
+volumes:
+  video-tmp:

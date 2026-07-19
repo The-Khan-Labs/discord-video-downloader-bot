@@ -1,0 +1,6 @@
+nextcord>=2.6.0,<3.0.0
+yt-dlp>=2024.8.0
+python-dotenv>=1.0.0
+# Python 3.13+ compatibility (stdlib audioop removed; setuptools pkg_resources needed by nextcord)
+audioop-lts>=0.2.0; python_version >= "3.13"
+setuptools>=70.0.0,<82

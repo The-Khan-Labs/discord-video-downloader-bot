@@ -1,0 +1,40 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime
+logs/
+*.log
+bot.lock
+/tmp/
+
+# Media leftovers
+*.mp4
+*.webm
+*.mkv
+*.mov
+*.part
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

@@ -1,25 +1,39 @@
 # Discord Video Rehost Bot
 
-Self-hosted Discord bot that watches for social video links, downloads them, and re-uploads the video as a **native Discord attachment** so people can play it without leaving the app.
+Self-hosted Discord bot that turns social (and other) video links into **native Discord attachments**.
+
+Drop a link → bot downloads with **yt-dlp** → uploads the video file → cleans temp files.
 
 ## Features
 
-- Detects links from TikTok, Instagram, Facebook, YouTube Shorts, X/Twitter, Reddit, Twitch clips, and Daily Mail videos
-- Downloads with **yt-dlp** (Python API) plus an X/Twitter fallback for many sensitive posts
-- Re-uploads as a normal Discord file (video only — no caption spam)
-- Deletes the original link message in servers (when the bot has permission)
-- Compresses oversized files with **ffmpeg** to fit Discord’s upload limit
-- Per-user rate limits, concurrent download cap, temp files always cleaned up
-- Config via environment variables
-- Docker + systemd templates included
+- **yt-dlp powered** — works with the huge set of sites yt-dlp supports (TikTok, Instagram, Facebook, X/Twitter, Reddit, Twitch clips, YouTube Shorts, Daily Mail, and many more)
+- **Generic URL mode** — any non-blocked `http(s)` link can be tried (disable if you only want known social hosts)
+- **X/Twitter fallback** for many sensitive posts yt-dlp alone misses
+- **Caption**: tags the person who shared + optional video title
+- Deletes the original link message in servers (when permitted)
+- Compresses oversized files with **ffmpeg** to fit Discord’s limit
+- Per-user rate limits, concurrency cap, single-instance lock
+- Temp videos **always deleted** after upload or failure
+- Env-based config, Docker + systemd templates
+
+## Open-source checklist
+
+| Item | Status |
+|------|--------|
+| MIT License | `LICENSE` |
+| README + setup | this file |
+| `.env.example` (no secrets) | yes |
+| `.gitignore` | blocks `.env`, venv, logs, media |
+| Contributing guide | `CONTRIBUTING.md` |
+| Security policy | `SECURITY.md` |
+| Deploy templates | `Dockerfile`, `docker-compose.yml`, `deploy/*.service` |
 
 ## Requirements
 
-- Python **3.11+** (3.12 recommended; 3.13 needs extras in `requirements.txt`)
-- **ffmpeg** + **ffprobe** on `PATH` (for compression)
-- A Discord application/bot with:
-  - **Message Content Intent** enabled
-  - Permissions: View Channel, Send Messages, Attach Files, Manage Messages, Read Message History
+- Python **3.11+** (3.12 recommended)
+- **ffmpeg** + **ffprobe**
+- Discord bot with **Message Content Intent**
+- Permissions: View Channel, Send Messages, Attach Files, Manage Messages, Read History
 
 ## Quick start
 
@@ -28,16 +42,16 @@ git clone https://github.com/YOUR_USER/discord-video-bot.git
 cd discord-video-bot
 
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-
+source .venv/bin/activate
 pip install -r requirements.txt
+
 cp .env.example .env
-# Edit .env and set DISCORD_TOKEN=...
+# set DISCORD_TOKEN=...
 
 python main.py
 ```
 
-Invite URL pattern:
+Invite (replace client id):
 
 ```
 https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=2147600448&scope=bot
@@ -45,33 +59,42 @@ https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=21
 
 ## Configuration
 
-See `.env.example`. Important variables:
+See `.env.example`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DISCORD_TOKEN` | *(required)* | Bot token |
-| `MAX_FILE_SIZE_MB` | `25` | Configured Discord size cap |
-| `MAX_DOWNLOADS_PER_USER_PER_HOUR` | `10` | Per-user rate limit |
-| `DOWNLOAD_TIMEOUT_SECONDS` | `120` | Download timeout |
-| `COMPRESS_VIDEOS` | `true` | ffmpeg when over size budget |
-| `ALLOWED_CHANNEL_IDS` | empty | If set, only these channels |
-| `IGNORED_CHANNEL_IDS` | empty | Never process these |
-| `DELETE_ORIGINAL_MESSAGE` | `true` | Delete link messages in servers |
-| `CONCURRENT_DOWNLOAD_LIMIT` | `3` | Parallel downloads |
+| `DISCORD_TOKEN` | required | Bot token |
+| `MAX_FILE_SIZE_MB` | `25` | Size cap (upload budget is slightly lower) |
+| `MAX_DOWNLOADS_PER_USER_PER_HOUR` | `10` | Rate limit (failures refunded) |
+| `INCLUDE_AUTHOR` | `true` | Mention who shared the link |
+| `INCLUDE_TITLE` | `true` | Video title in caption |
+| `INCLUDE_SOURCE_URL` | `false` | Original URL under the video |
+| `ALLOW_GENERIC_URLS` | `true` | Try any non-denied URL via yt-dlp |
+| `EXTRA_DENY_HOSTS` | empty | Comma-separated hosts to never try |
+| `DELETE_ORIGINAL_MESSAGE` | `true` | Remove link messages in servers |
+| `COMPRESS_VIDEOS` | `true` | ffmpeg when oversize |
+| `CONCURRENT_DOWNLOAD_LIMIT` | `3` | Parallel jobs |
 
-The bot uses a slightly lower **upload budget** than `MAX_FILE_SIZE_MB` so Discord is less likely to reject near-limit files.
+## Example caption
+
+```
+@alice
+Funny cat compilation
+```
+
+(video attachment)
 
 ## Project layout
 
 ```
-main.py                     # Entry point, logging, single-instance lock
-config.py                   # Env-based settings
-cogs/video_downloader.py    # Message listener + re-upload
-utils/download_handler.py   # yt-dlp, X fallback, compression
-utils/file_manager.py       # Temp dirs (always deleted after use)
-utils/validators.py         # Platform URL detection
-utils/process_lock.py       # Prevent two bot processes
-deploy/discord-video-bot.service
+main.py
+config.py
+cogs/video_downloader.py
+utils/download_handler.py   # yt-dlp + X API fallback + ffmpeg
+utils/validators.py         # URL extract (known + generic)
+utils/file_manager.py       # temp dirs, always cleaned
+utils/process_lock.py
+deploy/
 Dockerfile
 docker-compose.yml
 ```
@@ -79,32 +102,20 @@ docker-compose.yml
 ## Docker
 
 ```bash
-cp .env.example .env
-# set DISCORD_TOKEN
-
+cp .env.example .env   # set token
 docker compose up -d --build
-docker compose logs -f
-```
-
-## systemd
-
-See `deploy/discord-video-bot.service`. Copy to `/etc/systemd/system/`, edit paths, then:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now discord-video-bot
 ```
 
 ## Notes
 
-- **Group DMs / friend-to-friend DMs:** Discord does not allow bots there. Use a server (or a private mini-server for friends).
-- **Bot DMs:** Supported if the user shares a server with the bot and can message it.
-- **Instagram / some Facebook posts** may need cookies or fail regionally — keep `yt-dlp` updated: `pip install -U yt-dlp`.
-- Temp videos are deleted after upload; only Discord keeps the attachment.
+- **Group DMs / friend DMs:** Discord does not allow bots there — use a server.
+- Keep **yt-dlp** updated: `pip install -U yt-dlp`
+- Long YouTube videos may exceed size limits even after compress
+- Some Instagram/Facebook posts need cookies or are region-locked
 
-## Admin command
+## Admin
 
-- `!videostatus` — show limits (requires **Manage Server**)
+`!videostatus` — limits overview (Manage Server)
 
 ## License
 

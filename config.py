@@ -44,6 +44,13 @@ def _env_csv_ints(name: str) -> list[int]:
     return values
 
 
+def _env_csv_strs(name: str) -> list[str]:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return []
+    return [p.strip() for p in raw.split(",") if p.strip()]
+
+
 @dataclass(frozen=True)
 class Settings:
     """Runtime settings for the Discord video bot."""
@@ -59,7 +66,13 @@ class Settings:
     log_file: Path = field(default_factory=lambda: Path("logs/bot.log"))
     log_level: str = "INFO"
     delete_original_message: bool = True
+    # Caption options for the re-upload message
+    include_author: bool = True
+    include_title: bool = True
     include_source_url: bool = False
+    # Try any non-blocked URL with yt-dlp (1000+ sites), not only hard-coded hosts
+    allow_generic_urls: bool = True
+    extra_deny_hosts: list[str] = field(default_factory=list)
     concurrent_download_limit: int = 3
 
     @property
@@ -100,6 +113,10 @@ def load_settings() -> Settings:
         log_file=Path(os.getenv("LOG_FILE", "logs/bot.log")),
         log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         delete_original_message=_env_bool("DELETE_ORIGINAL_MESSAGE", True),
+        include_author=_env_bool("INCLUDE_AUTHOR", True),
+        include_title=_env_bool("INCLUDE_TITLE", True),
         include_source_url=_env_bool("INCLUDE_SOURCE_URL", False),
+        allow_generic_urls=_env_bool("ALLOW_GENERIC_URLS", True),
+        extra_deny_hosts=_env_csv_strs("EXTRA_DENY_HOSTS"),
         concurrent_download_limit=max(1, _env_int("CONCURRENT_DOWNLOAD_LIMIT", 3)),
     )

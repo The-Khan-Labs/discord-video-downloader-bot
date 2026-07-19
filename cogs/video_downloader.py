@@ -13,9 +13,9 @@ import nextcord
 from nextcord.ext import commands
 
 from config import Settings
-from utils.download_handler import DownloadError, VideoDownloader
+from utils.download_handler import DownloadError, DownloadErrorCode, VideoDownloader
 from utils.file_manager import FileManager
-from utils.validators import MatchedURL, extract_video_urls
+from utils.validators import MatchedURL, extract_video_urls, pretty_title
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +175,11 @@ class VideoDownloaderCog(commands.Cog):
         if message.id in self._in_flight:
             return
 
-        matches = extract_video_urls(message.content)
+        matches = extract_video_urls(
+            message.content,
+            allow_generic=self.settings.allow_generic_urls,
+            extra_deny_hosts=self.settings.extra_deny_hosts,
+        )
         if not matches:
             return
 
@@ -194,6 +198,7 @@ class VideoDownloaderCog(commands.Cog):
         user = message.author
         channel = message.channel
         in_dm = message.guild is None
+        known = matched.is_known_platform
         reserved = False
 
         logger.info(
@@ -214,8 +219,12 @@ class VideoDownloaderCog(commands.Cog):
             return
         reserved = True
 
-        if self.settings.delete_original_message and not in_dm:
+        # Known platforms: remove link ASAP. Generic URLs: wait until success
+        # so random non-video links aren't deleted.
+        deleted_early = False
+        if self.settings.delete_original_message and not in_dm and known:
             await self._delete_message_now(message)
+            deleted_early = True
 
         status = StatusBoard(channel)
         await status.start(_STATUS_WORKING)
@@ -238,25 +247,40 @@ class VideoDownloaderCog(commands.Cog):
                         author=user,
                         matched=matched,
                         file_path=result.path,
+                        title=result.title,
                         job_dir=job_dir,
                         status=status,
                     )
+                    if (
+                        self.settings.delete_original_message
+                        and not in_dm
+                        and not deleted_early
+                    ):
+                        await self._delete_message_now(message)
                     # Drop the file the moment Discord has it — do not keep copies.
                     await self.file_manager.delete_file(result.path)
                     success = True
         except DownloadError as exc:
-            logger.error(
-                "Download failed for %s (user=%s, code=%s): %s",
-                matched.url,
-                user.id,
-                exc.code.value,
-                exc,
-            )
-            await self._temp_notice(
-                channel,
-                f"{user.mention} {exc.user_message}",
-                ttl=_ERROR_TTL_SECONDS,
-            )
+            # Generic / unknown hosts: stay quiet if yt-dlp just doesn't support them.
+            if not known and exc.code == DownloadErrorCode.UNSUPPORTED:
+                logger.info(
+                    "Skipping unsupported generic URL from %s: %s",
+                    user.id,
+                    matched.url,
+                )
+            else:
+                logger.error(
+                    "Download failed for %s (user=%s, code=%s): %s",
+                    matched.url,
+                    user.id,
+                    exc.code.value,
+                    exc,
+                )
+                await self._temp_notice(
+                    channel,
+                    f"{user.mention} {exc.user_message}",
+                    ttl=_ERROR_TTL_SECONDS,
+                )
         except nextcord.HTTPException as exc:
             size_txt = (
                 self.file_manager.format_size(upload_size) if upload_size is not None else "?"
@@ -315,11 +339,13 @@ class VideoDownloaderCog(commands.Cog):
         author: nextcord.abc.User,
         matched: MatchedURL,
         file_path: Path,
+        title: str | None,
         job_dir: Path,
         status: StatusBoard,
     ) -> None:
         path = file_path
         last_http: nextcord.HTTPException | None = None
+        caption = self._build_caption(author, title, matched.url)
 
         for attempt in range(1, 3):
             size = path.stat().st_size
@@ -330,7 +356,7 @@ class VideoDownloaderCog(commands.Cog):
                 self.file_manager.format_size(size),
             )
             try:
-                await self._send_video_file(channel, path)
+                await self._send_video_file(channel, path, caption=caption)
                 logger.info(
                     "Uploaded rehosted video for %s from %s",
                     author.id,
@@ -365,20 +391,44 @@ class VideoDownloaderCog(commands.Cog):
         if last_http is not None:
             raise last_http
 
+    def _build_caption(
+        self,
+        author: nextcord.abc.User,
+        title: str | None,
+        source_url: str,
+    ) -> str | None:
+        """Optional mention + cleaned title + source URL."""
+        lines: list[str] = []
+        if self.settings.include_author:
+            lines.append(author.mention)
+        if self.settings.include_title:
+            cleaned = pretty_title(title)
+            if cleaned:
+                lines.append(cleaned)
+        if self.settings.include_source_url:
+            lines.append(source_url)
+        if not lines:
+            return None
+        return "\n".join(lines)
+
     async def _send_video_file(
         self,
         channel: nextcord.abc.Messageable,
         file_path: Path,
+        *,
+        caption: str | None = None,
     ) -> None:
         upload_name = "video.mp4"
         if file_path.suffix.lower() in {".mp4", ".webm", ".mov", ".mkv"}:
             upload_name = f"video{file_path.suffix.lower()}"
 
-        # Read into memory-safe stream; close handle before caller deletes the file.
+        # Close handle before caller deletes the temp file.
         with file_path.open("rb") as fp:
             discord_file = nextcord.File(fp, filename=upload_name)
-            await channel.send(file=discord_file)
-        # File handle is closed here; bytes already uploaded to Discord.
+            if caption:
+                await channel.send(content=caption, file=discord_file)
+            else:
+                await channel.send(file=discord_file)
 
     @staticmethod
     def _friendly_http_error(exc: nextcord.HTTPException) -> str:

@@ -1,8 +1,4 @@
-"""URL extraction for video rehosting.
-
-Known social platforms are recognized first. With generic mode enabled, any
-other non-blocked http(s) URL is passed to yt-dlp (which supports 1000+ sites).
-"""
+"""Pull video-ish URLs out of message text."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=Discord social video rehost bot
+Description=Discord video rehost bot
 After=network-online.target
 Wants=network-online.target
 
@@ -8,26 +8,19 @@ Type=simple
 User=discord-bot
 Group=discord-bot
 WorkingDirectory=/opt/discord-video-bot
-
-# Load secrets and config from this file (not world-readable)
 EnvironmentFile=/opt/discord-video-bot/.env
-
-# Prefer a virtualenv if you install one at this path
 ExecStart=/opt/discord-video-bot/.venv/bin/python /opt/discord-video-bot/main.py
 
-# Auto-restart on crash or unclean exit
 Restart=always
 RestartSec=5
 StartLimitIntervalSec=0
 
-# Hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/discord-video-bot/logs /tmp/discord-video-bot
 
-# Give the process a clean environment for Python output
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=discord-video-bot

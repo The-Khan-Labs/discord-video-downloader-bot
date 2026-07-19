@@ -1,4 +1,4 @@
-"""Single-instance process lock so two bot processes cannot run at once."""
+"""Keep a second `python main.py` from fighting the first."""
 
 from __future__ import annotations
 

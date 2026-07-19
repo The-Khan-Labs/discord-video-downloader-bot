@@ -1,4 +1,4 @@
-"""Message listener that rehosts social video links as Discord attachments."""
+"""Listens for links, downloads, re-uploads. The main bot behavior lives here."""
 
 from __future__ import annotations
 

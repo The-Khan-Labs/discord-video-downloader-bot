@@ -1,4 +1,4 @@
-"""Discord social-video rehost bot entry point."""
+"""Entrypoint: load config, grab the process lock, run the bot."""
 
 from __future__ import annotations
 

@@ -1,22 +1,19 @@
 # Security
 
-## Reporting a vulnerability
+## Reporting
 
-If you find a security issue (token leaks, path traversal, remote code abuse, etc.):
+If you find something that can leak a token, write outside the temp dir, or otherwise cause real harm:
 
-1. **Do not** open a public GitHub issue.
-2. Contact the repository owner privately (GitHub Security Advisories preferred).
-3. Include steps to reproduce and impact.
+1. Don’t file a public issue with exploit details.
+2. Use GitHub Security Advisories on this repo, or contact the maintainers privately.
+3. Include repro steps and impact.
 
-## Hardening notes for operators
+## Running this bot
 
-- Never commit `.env` or paste bot tokens into issues.
-- Restrict the bot to trusted servers/channels (`ALLOWED_CHANNEL_IDS`).
-- Keep `yt-dlp` updated: `pip install -U yt-dlp`.
-- Run under a dedicated OS user with minimal filesystem permissions.
-- Temp files live under `TEMP_DIR` and should be deleted after each job; still monitor disk use.
-- Generic URL mode can be disabled (`ALLOW_GENERIC_URLS=false`) to only process known social hosts.
+- Keep `DISCORD_TOKEN` in `.env` only; never paste it into issues or screenshots.
+- Use `ALLOWED_CHANNEL_IDS` if the bot is in a large server.
+- Update yt-dlp regularly.
+- Run as an unprivileged user if you can.
+- Disk: jobs are cleaned up, but watch `TEMP_DIR` if something crashes mid-download.
 
-## Scope
-
-This bot downloads public media from third-party sites and re-uploads it to Discord. Operators are responsible for complying with Discord’s Terms of Service, copyright law, and local regulations.
+This project downloads third-party media and rehosts it on Discord. You’re on the hook for your own usage and legal compliance.

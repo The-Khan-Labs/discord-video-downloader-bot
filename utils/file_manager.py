@@ -1,8 +1,4 @@
-"""Temporary file lifecycle helpers for downloaded videos.
-
-Videos are never kept after processing: each job lives in an isolated
-directory that is always deleted when the job finishes (success or failure).
-"""
+"""Temp dirs for downloads. Always wiped when a job ends."""
 
 from __future__ import annotations
 

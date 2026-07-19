@@ -1,4 +1,4 @@
-"""yt-dlp based video downloader with compression and typed errors."""
+"""Download + optional compress. yt-dlp first, with an X/Twitter API fallback."""
 
 from __future__ import annotations
 
